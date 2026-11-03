@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="description" content="Word Search — find hidden words in 12 themed letter grids. Free single-file HTML5 word puzzle game.">
+<title>Word Search · Free Word Find Puzzle</title>
+<script>
+// 平台 SDK 按域名条件加载（独立运行时完全不加载，游戏行为不变）
+(function () {
+  var host = location.hostname || "";
+  try {
+    if (host.indexOf("crazygames") !== -1) {
+      var s1 = document.createElement("script");
+      s1.src = "https://sdk.crazygames.com/crazygames-sdk-v3.js";
+      s1.onload = function () {
+        if (window.CrazyGames && window.CrazyGames.SDK) {
+          window.CrazyGames.SDK.init().then(function () {
+            try { window.CrazyGames.SDK.game.loadingStart(); } catch (e) {}
+            window.addEventListener("load", function () { try { window.CrazyGames.SDK.game.loadingStop(); } catch (e) {} });
+          }).catch(function () {});
+        }
+      };
+      document.head.appendChild(s1);
+      window.__portal = "crazygames";
+    } else if (host.indexOf("gamedistribution") !== -1 || host.indexOf("html5.gamedistribution.com") !== -1 || host.indexOf("gd.games") !== -1) {
+      var s2 = document.createElement("script");
+      s2.src = "https://sdk.gamedistribution.com/v2/main.min.js";
+      document.head.appendChild(s2);
+      window.__portal = "gamedistribution";
+    }
+  } catch (e) {}
+})();
+</script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: #f3ecdd; font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: #4a4234; -webkit-user-select: none; user-select: none; }
+  #wrap { height: 100%; display: flex; flex-direction: column; align-items: center; }
+
+  /* ---------- 菜单（主题选择） ---------- */
+  #menu { width: 100%; max-width: 600px; height: 100%; overflow-y: auto; padding: 18px 16px 24px; display: flex; flex-direction: column; }
+  #menu h1 { text-align: center; font-size: 30px; letter-spacing: 4px; color: #3f3850; margin: 4px 0 0; font-weight: 900; }
+  #menu h1::after { content: ""; display: block; width: 130px; height: 6px; margin: 7px auto 0; border-radius: 3px; background: #e8804f; opacity: .75; }
+  #menu .sub { text-align: center; color: #8a8070; font-size: 13px; margin: 10px 0 14px; }
+  .sizeRow { display: flex; gap: 8px; justify-content: center; margin-bottom: 14px; }
+  .sizeBtn { flex: 1; max-width: 140px; background: #fffdf6; border: 2px solid #e3d8c2; border-radius: 14px; padding: 9px 6px; font-size: 15px; font-weight: 800; color: #5a5142; cursor: pointer; font-family: inherit; }
+  .sizeBtn small { display: block; font-size: 10px; letter-spacing: 1px; color: #9a907e; font-weight: 700; margin-top: 2px; }
+  .sizeBtn.sel { border-color: #e8804f; background: #fdf1e4; color: #c05f2a; }
+  .sizeBtn.sel small { color: #d09a6e; }
+  #themeGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  @media (min-width: 540px) { #themeGrid { grid-template-columns: repeat(3, 1fr); } }
+  .themeBtn { border: 2px solid #e3d8c2; border-radius: 14px; padding: 13px 8px; text-align: center; cursor: pointer; font-family: inherit; font-weight: 800; font-size: 14px; color: #4a4234; letter-spacing: 1px; }
+  .themeBtn:active { transform: scale(.97); }
+  .themeBtn .best { display: block; margin-top: 5px; font-size: 10px; font-weight: 700; color: #9a907e; letter-spacing: .5px; }
+  #howto { text-align: center; color: #a29884; font-size: 12px; margin-top: 14px; line-height: 1.7; }
+
+  /* ---------- 游戏界面 ---------- */
+  #gameUI { width: 100%; max-width: 680px; height: 100%; display: none; flex-direction: column; padding: 8px 10px 6px; }
+  #hud { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  #themeLabel { font-weight: 900; font-size: 15px; letter-spacing: 1px; color: #3f3850; text-align: center; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pillBtn { background: #fffdf6; border: 2px solid #e3d8c2; border-radius: 12px; padding: 7px 12px; font-size: 12px; font-weight: 800; color: #6a6152; cursor: pointer; font-family: inherit; }
+  .pillBtn:active { transform: scale(.96); }
+  #statRow { display: flex; justify-content: space-around; align-items: center; padding: 4px 0 6px; }
+  .stat { text-align: center; min-width: 76px; }
+  .stat .label { font-size: 10px; color: #a29884; letter-spacing: 1.5px; font-weight: 700; }
+  .stat .val { font-size: 21px; font-weight: 900; color: #3f3850; }
+  #timeVal.low { color: #d5493a; }
+  #timerBar { height: 6px; border-radius: 3px; background: #e7dcc6; overflow: hidden; margin-bottom: 8px; }
+  #timerFill { height: 100%; width: 100%; background: #e8804f; border-radius: 3px; transition: width .25s linear; }
+  #board { position: relative; flex: 1; min-height: 0; }
+  #board canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  /* ---------- 结算浮层 ---------- */
+  #overlay { position: absolute; left: 0; top: 0; right: 0; bottom: 0; display: none; align-items: center; justify-content: center; background: rgba(243, 236, 221, .85); z-index: 5; border-radius: 14px; }
+  #panel { background: #fffdf6; border: 2px solid #e3d8c2; border-radius: 18px; padding: 24px 30px; text-align: center; box-shadow: 0 10px 30px rgba(90, 70, 40, .18); }
+  #panel h2 { font-size: 22px; color: #3f3850; margin-bottom: 8px; }
+  #ovStars { font-size: 26px; letter-spacing: 6px; margin-bottom: 8px; }
+  #ovStars .on { color: #e8b23f; }
+  #ovStars .dim { color: #ddd2ba; }
+  #panel .final { font-size: 34px; font-weight: 900; color: #e8804f; margin-bottom: 4px; }
+  #panel p { color: #8a8070; font-size: 13px; margin-bottom: 16px; }
+  .btnRow { display: flex; gap: 8px; justify-content: center; }
+  #againBtn { background: #e8804f; color: #fff; border: none; border-radius: 12px; padding: 12px 24px; font-size: 15px; font-weight: 800; cursor: pointer; font-family: inherit; }
+  #menuBtn { background: #fffdf6; border: 2px solid #e3d8c2; color: #6a6152; border-radius: 12px; padding: 12px 20px; font-size: 15px; font-weight: 800; cursor: pointer; font-family: inherit; }
+  #againBtn:active, #menuBtn:active { transform: scale(.96); }
+
+  /* ---------- 词表 ---------- */
+  #wordList { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; padding-top: 8px; }
+  @media (max-width: 460px) { #wordList { grid-template-columns: repeat(2, 1fr); } }
+  .chip { background: #fffdf6; border: 1.5px solid #e3d8c2; border-radius: 9px; padding: 6px 4px; text-align: center; font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #5a5142; }
+  .chip.found { color: #b0a68f; text-decoration: line-through; border-style: dashed; opacity: .8; }
+
+  #footer { text-align: center; color: #a99f8a; font-size: 11px; padding: 8px 0 2px; }
+  @keyframes wsShake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+  canvas.shake { animation: wsShake .4s; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="menu">
+    <h1>WORD SEARCH</h1>
+    <p class="sub">Find all 8 hidden words before time runs out!</p>
+    <div class="sizeRow">
+      <button class="sizeBtn" id="sz0">8&times;8<small>EASY</small></button>
+      <button class="sizeBtn" id="sz1">10&times;10<small>NORMAL</small></button>
+      <button class="sizeBtn" id="sz2">12&times;12<small>HARD</small></button>
+    </div>
+    <div id="themeGrid"></div>
+    <div id="howto">Drag from the first letter to the last letter — words hide in all 8 directions.<br>
+      Every word found gives +5 seconds. Finish fast to earn 3 stars!</div>
+  </div>
+  <div id="gameUI">
+    <div id="hud">
+      <button class="pillBtn" id="backBtn">BACK</button>
+      <div id="themeLabel">ANIMALS &middot; 8&times;8</div>
+      <button class="pillBtn" id="soundBtn">SOUND ON</button>
+    </div>
+    <div id="statRow">
+      <div class="stat"><div class="label">TIME</div><div class="val" id="timeVal">3:00</div></div>
+      <div class="stat"><div class="label">WORDS</div><div class="val" id="foundVal">0/8</div></div>
+      <div class="stat"><div class="label">SCORE</div><div class="val" id="scoreVal">0</div></div>
+    </div>
+    <div id="timerBar"><div id="timerFill"></div></div>
+    <div id="board">
+      <canvas id="game"></canvas>
+      <div id="overlay"><div id="panel">
+        <h2 id="ovTitle">Wonderful!</h2>
+        <div id="ovStars"></div>
+        <div class="final" id="finalScore">0</div>
+        <p id="ovText"></p>
+        <div class="btnRow">
+          <button id="againBtn">PLAY AGAIN</button>
+          <button id="menuBtn">MENU</button>
+        </div>
+      </div></div>
+    </div>
+    <div id="wordList"></div>
+    <div id="footer">Word Search — a free word puzzle game</div>
+  </div>
+</div>
+<script>
+"use strict";
+/*GEN-START*/
+// ---------- 内联主题词库（紧凑格式：主题名|逗号分隔的全大写单词） ----------
+// 约定：全部大写 A-Z；单主题内互不为彼此子串（避免歧义）；词长 ≤ 8（8×8 也能放下）
+var WORD_DATA = [
+  "ANIMALS|CAT,DOG,LION,TIGER,HORSE,ZEBRA,PANDA,KOALA,EAGLE,SHARK,WHALE,RABBIT,MONKEY,TURTLE,FALCON,DOLPHIN,CAMEL,OTTER,MOOSE,SLOTH",
+  "FOOD|PIZZA,PASTA,SUSHI,BREAD,CHEESE,SALAD,MANGO,MELON,PEACH,LEMON,BERRY,OLIVE,ONION,GARLIC,MUFFIN,WAFFLE,DONUT,HONEY,TOMATO,BUTTER",
+  "COUNTRIES|CHINA,JAPAN,INDIA,EGYPT,ITALY,SPAIN,KENYA,PERU,CHILE,NEPAL,JORDAN,NORWAY,SWEDEN,MEXICO,CANADA,BRAZIL,TURKEY,QATAR,BOLIVIA,JAMAICA",
+  "SPORTS|GOLF,RUGBY,BOXING,SOCCER,TENNIS,HOCKEY,SKIING,ROWING,DIVING,KARATE,FENCING,CRICKET,RUNNING,CYCLING,SURFING,SKATING,BOWLING,JUDO,POLO,ARCHERY",
+  "JOBS|NURSE,CHEF,PILOT,DENTIST,DOCTOR,FARMER,LAWYER,BAKER,TAILOR,WAITER,ACTOR,SINGER,TEACHER,ENGINEER,PLUMBER,FIREMAN,BANKER,DANCER,JUDGE,VET",
+  "NATURE|RIVER,OCEAN,FOREST,DESERT,MEADOW,VALLEY,ISLAND,BEACH,STONE,PLANT,LEAF,FLOWER,MOUNTAIN,JUNGLE,CANYON,GLACIER,TUNDRA,LAGOON,PEAK,HILL",
+  "MUSIC|GUITAR,PIANO,VIOLIN,DRUMS,FLUTE,TRUMPET,HARP,TEMPO,CHORUS,MELODY,RHYTHM,JAZZ,OPERA,BAND,LYRICS,CLEF,BANJO,CELLO,ORGAN,ANTHEM",
+  "SPACE|ROCKET,PLANET,GALAXY,COMET,METEOR,NEBULA,SATURN,VENUS,ORBIT,STAR,MOON,MARS,COSMOS,LUNAR,ECLIPSE,JUPITER,URANUS,NEPTUNE,GRAVITY,SHUTTLE",
+  "SCHOOL|PENCIL,PAPER,ERASER,RULER,DESK,CHALK,TEACHER,STUDENT,LESSON,LIBRARY,DIPLOMA,NOTEBOOK,BACKPACK,SCIENCE,RECESS,CAMPUS,HISTORY,BIOLOGY,CLASS,EXAM",
+  "CLOTHES|SHIRT,PANTS,DRESS,SKIRT,SHOES,SOCKS,CAP,SCARF,GLOVES,JACKET,HOODIE,JEANS,BUTTON,POCKET,SWEATER,BOOTS,VEST,MITTENS,RAINCOAT,BLOUSE",
+  "WEATHER|SUNNY,RAINY,WINDY,STORM,CLOUD,FROST,THUNDER,BREEZE,HUMID,SNOW,HAIL,FOG,DRIZZLE,TORNADO,MONSOON,RAINBOW,SLEET,CYCLONE,GUST,DEW",
+  "TECH|MOUSE,KEYBOARD,SCREEN,SERVER,LAPTOP,ROBOT,CAMERA,BROWSER,PIXEL,DATA,BINARY,CHIP,MODEM,WINDOW,PRINTER,CLOUD,SPEAKER,TABLET,DRONE,MEMORY"
+];
+var DIRS8 = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
+var FILLERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+function parseThemes(raw) {
+  var out = [];
+  for (var i = 0; i < raw.length; i++) {
+    var p = raw[i].split("|");
+    out.push({ name: p[0], words: p[1].split(",") });
+  }
+  return out;
+}
+function shuffle(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+function pickWords(words, n) { return shuffle(words).slice(0, n); }
+
+// 尝试把全部单词放进 N×N 网格：8 方向、可反向、允许交叉共享字母；失败返回 null
+function tryBuild(N, words) {
+  var grid = [];
+  for (var r = 0; r < N; r++) { var row = []; for (var c = 0; c < N; c++) row.push(""); grid.push(row); }
+  var placements = [];
+  var order = words.slice().sort(function (a, b) { return b.length - a.length; }); // 长词先放，成功率更高
+  for (var w = 0; w < order.length; w++) {
+    var word = order[w], len = word.length, placed = false;
+    for (var att = 0; att < 300 && !placed; att++) {
+      var dir = DIRS8[Math.floor(Math.random() * 8)];
+      var dr = dir[1], dc = dir[0], span = len - 1;
+      var rMin = dr === 1 ? 0 : dr === -1 ? span : 0;
+      var rMax = dr === 1 ? N - 1 - span : N - 1;
+      var cMin = dc === 1 ? 0 : dc === -1 ? span : 0;
+      var cMax = dc === 1 ? N - 1 - span : N - 1;
+      var r0 = rMin + Math.floor(Math.random() * (rMax - rMin + 1));
+      var c0 = cMin + Math.floor(Math.random() * (cMax - cMin + 1));
+      var ok = true;
+      for (var i = 0; i < len; i++) {
+        var ch = grid[r0 + dr * i][c0 + dc * i];
+        if (ch !== "" && ch !== word.charAt(i)) { ok = false; break; }
+      }
+      if (!ok) continue;
+      for (var j = 0; j < len; j++) grid[r0 + dr * j][c0 + dc * j] = word.charAt(j);
+      placements.push({ word: word, r0: r0, c0: c0, dr: dr, dc: dc });
+      placed = true;
+    }
+    if (!placed) return null;
+  }
+  return { grid: grid, placements: placements };
+}
+
+// 程序化生成整局谜题：放置全部词 + 随机字母补满剩余格（保证 8 词全部可找）
+function generatePuzzle(N, words) {
+  var res = null;
+  for (var t = 0; t < 999 && !res; t++) res = tryBuild(N, words);
+  if (!res) return null;
+  var grid = res.grid;
+  for (var r = 0; r < N; r++) for (var c = 0; c < N; c++)
+    if (grid[r][c] === "") grid[r][c] = FILLERS.charAt(Math.floor(Math.random() * 26));
+  return res;
+}
+/*GEN-END*/
+
+// ---------- 常量与状态 ----------
+var THEMES = parseThemes(WORD_DATA);
+var CRAYONS = ["#e05a4e", "#e8804f", "#d9a53f", "#64a355", "#3f9d9b", "#5a7fd0", "#8e6cc8", "#d95f8a"];
+for (var ci = 0; ci < THEMES.length; ci++) THEMES[ci].color = CRAYONS[ci % CRAYONS.length];
+var SIZES = [8, 10, 12];
+var SIZE_NAMES = ["EASY", "NORMAL", "HARD"];
+var ROUND_TIME = 180, WORD_COUNT = 8, WORD_BONUS_TIME = 5;
+
+var state = "MENU";           // MENU | PLAY | END
+var sizeIdx = 0, gridSize = SIZES[0];
+var curTheme = -1;
+var puzzle = null;            // {grid, placements}
+var wordRows = [];            // [{word, found}]
+var chipEls = [];
+var foundCount = 0, score = 0, timeLeft = ROUND_TIME;
+var lines = [];               // 已找到的蜡笔线 [{cells, color, t}]
+var drag = null;              // 当前拖动 {c0, r0, cells}
+var errCells = null, errT = 0;
+var lastTick = -1, paused = false, playingSdk = false, muted = false;
+var viewW = 0, viewH = 0, CELL = 0, GRID = 0, OX = 0, OY = 0, N = 8;
+
+// ---------- DOM ----------
+var canvas = document.getElementById("game");
+var ctx = canvas.getContext("2d");
+var boardEl = document.getElementById("board");
+var menuEl = document.getElementById("menu");
+var gameEl = document.getElementById("gameUI");
+var overlayEl = document.getElementById("overlay");
+var themeLabel = document.getElementById("themeLabel");
+var timeVal = document.getElementById("timeVal");
+var foundVal = document.getElementById("foundVal");
+var scoreVal = document.getElementById("scoreVal");
+var timerFill = document.getElementById("timerFill");
+var wordListEl = document.getElementById("wordList");
+var ovTitle = document.getElementById("ovTitle");
+var ovStars = document.getElementById("ovStars");
+var finalScore = document.getElementById("finalScore");
+var ovText = document.getElementById("ovText");
+var soundBtn = document.getElementById("soundBtn");
+var themeGridEl = document.getElementById("themeGrid");
+
+// ---------- localStorage（全部 try/catch 包裹） ----------
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+var bestData = {};
+try { bestData = JSON.parse(lsGet("ws_best") || "{}") || {}; } catch (e) { bestData = {}; }
+muted = lsGet("ws_mute") === "1";
+var savedSize = parseInt(lsGet("ws_size") || "8", 10);
+if (SIZES.indexOf(savedSize) >= 0) { gridSize = savedSize; sizeIdx = SIZES.indexOf(savedSize); }
+
+function bestFor(name, size) { return bestData[name + "|" + size] || null; }
+function saveBest(name, size, s, st) {
+  var k = name + "|" + size, old = bestData[k];
+  if (!old || s > old.s || (s === old.s && st > old.st)) {
+    bestData[k] = { s: s, st: st };
+    lsSet("ws_best", JSON.stringify(bestData));
+    return true;
+  }
+  return false;
+}
+
+// ---------- 平台埋点（域名守卫由 loader 负责，此处再守卫一次） ----------
+function sdkStart() {
+  if (playingSdk) return;
+  try {
+    if (window.__portal === "crazygames" && window.CrazyGames && window.CrazyGames.SDK) {
+      window.CrazyGames.SDK.game.gameplayStart();
+      playingSdk = true;
+    }
+  } catch (e) {}
+}
+function sdkStop(withHappy) {
+  if (!playingSdk) return;
+  try {
+    if (window.__portal === "crazygames" && window.CrazyGames && window.CrazyGames.SDK) {
+      window.CrazyGames.SDK.game.gameplayStop();
+      if (withHappy) window.CrazyGames.SDK.game.happytime();
+    }
+  } catch (e) {}
+  playingSdk = false;
+}
+
+// ---------- WebAudio 音效 ----------
+var actx = null;
+function audio() {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+  } catch (e) {}
+  return actx;
+}
+function beep(freq, dur, type, gainv, delay) {
+  if (muted) return;
+  try {
+    var a = actx || audio();
+    if (!a) return;
+    var t0 = a.currentTime + (delay || 0);
+    var o = a.createOscillator(), g = a.createGain();
+    o.type = type || "sine"; o.frequency.value = freq;
+    g.gain.setValueAtTime(gainv || 0.1, t0);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    o.connect(g); g.connect(a.destination);
+    o.start(t0); o.stop(t0 + dur);
+  } catch (e) {}
+}
+function sfxStep(n) { beep(300 + Math.min(n, 9) * 32, 0.045, "square", 0.035); }
+function sfxFound() { beep(660, 0.09, "triangle", 0.09); beep(880, 0.14, "triangle", 0.09, 0.09); }
+function sfxError() { beep(150, 0.28, "sawtooth", 0.07); }
+function sfxWin() { var f = [523, 659, 784, 1047]; for (var i = 0; i < f.length; i++) beep(f[i], 0.14, "triangle", 0.1, i * 0.12); }
+function sfxLose() { var f = [330, 262, 196]; for (var i = 0; i < f.length; i++) beep(f[i], 0.18, "sine", 0.09, i * 0.15); }
+function sfxTick() { beep(1000, 0.03, "sine", 0.05); }
+
+// ---------- 布局 ----------
+function layoutBoard() {
+  var bw = boardEl.clientWidth, bh = boardEl.clientHeight;
+  if (bw <= 0 || bh <= 0) return;
+  viewW = bw; viewH = bh;
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var cw = Math.round(bw * dpr), ch = Math.round(bh * dpr);
+  if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  N = gridSize;
+  CELL = Math.max(14, Math.floor((Math.min(bw, bh) - 8) / N));
+  GRID = CELL * N;
+  OX = Math.floor((bw - GRID) / 2);
+  OY = Math.floor((bh - GRID) / 2);
+}
+window.addEventListener("resize", layoutBoard);
+
+// ---------- 渲染 ----------
+function roundRect(c, x, y, w, h, rad) {
+  c.beginPath();
+  c.moveTo(x + rad, y);
+  c.arcTo(x + w, y, x + w, y + h, rad);
+  c.arcTo(x + w, y + h, x, y + h, rad);
+  c.arcTo(x, y + h, x, y, rad);
+  c.arcTo(x, y, x + w, y, rad);
+  c.closePath();
+}
+function drawCrayon(cells, color, alpha) {
+  // 蜡笔/荧光笔线条：粗细两笔叠加，画在字母上方呈半透明覆盖效果
+  if (!cells || cells.length < 2) return;
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.strokeStyle = color;
+  for (var pass = 0; pass < 2; pass++) {
+    ctx.lineWidth = pass === 0 ? CELL * 0.52 : CELL * 0.24;
+    ctx.globalAlpha = alpha * 0.62;
+    ctx.beginPath();
+    for (var i = 0; i < cells.length; i++) {
+      var x = OX + (cells[i].c + 0.5) * CELL, y = OY + (cells[i].r + 0.5) * CELL;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+function render() {
+  if (viewW <= 0 || state === "MENU" || !puzzle) return;
+  ctx.clearRect(0, 0, viewW, viewH);
+  // 纸面底板
+  ctx.fillStyle = "#f8f2e2";
+  roundRect(ctx, OX - 8, OY - 8, GRID + 16, GRID + 16, 18); ctx.fill();
+  // 圆角字母格
+  for (var r = 0; r < N; r++) for (var c = 0; c < N; c++) {
+    ctx.fillStyle = "#fffdf6";
+    roundRect(ctx, OX + c * CELL + 1.5, OY + r * CELL + 1.5, CELL - 3, CELL - 3, CELL * 0.18);
+    ctx.fill();
+    ctx.strokeStyle = "#e6dbc3"; ctx.lineWidth = 1; ctx.stroke();
+  }
+  // 选中荧光笔底色（拖动实时高亮）
+  if (drag) {
+    ctx.fillStyle = "#ffe066";
+    ctx.globalAlpha = 0.55;
+    for (var s = 0; s < drag.cells.length; s++) {
+      roundRect(ctx, OX + drag.cells[s].c * CELL + 2, OY + drag.cells[s].r * CELL + 2, CELL - 4, CELL - 4, CELL * 0.18);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  // 错误红闪
+  if (errT > 0 && errCells) {
+    ctx.fillStyle = "#e05a4e";
+    ctx.globalAlpha = Math.min(0.45, errT * 1.2);
+    for (var e = 0; e < errCells.length; e++) {
+      roundRect(ctx, OX + errCells[e].c * CELL + 2, OY + errCells[e].r * CELL + 2, CELL - 4, CELL - 4, CELL * 0.18);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  // 字母
+  ctx.fillStyle = "#4a4158";
+  ctx.font = "700 " + Math.round(CELL * 0.52) + "px -apple-system, 'Segoe UI', Arial, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (var r2 = 0; r2 < N; r2++) for (var c2 = 0; c2 < N; c2++)
+    ctx.fillText(puzzle.grid[r2][c2], OX + c2 * CELL + CELL / 2, OY + r2 * CELL + CELL / 2 + CELL * 0.04);
+  // 已找到的彩色蜡笔线
+  for (var li = 0; li < lines.length; li++)
+    drawCrayon(lines[li].cells, lines[li].color, 0.42 * Math.min(1, lines[li].t * 5));
+  // 拖动中的荧光笔线
+  if (drag && drag.cells.length > 1) drawCrayon(drag.cells, "#f5b81c", 0.5);
+}
+
+// ---------- HUD ----------
+function updateTimeHUD() {
+  var s = Math.max(0, Math.ceil(timeLeft));
+  var m = Math.floor(s / 60), ss = s % 60;
+  timeVal.textContent = m + ":" + (ss < 10 ? "0" : "") + ss;
+  timeVal.classList.toggle("low", s <= 30 && state === "PLAY");
+  timerFill.style.width = Math.max(0, Math.min(100, timeLeft / ROUND_TIME * 100)) + "%";
+}
+function starsHTML(n) {
+  var s = "";
+  for (var i = 0; i < 3; i++) s += '<span class="' + (i < n ? "on" : "dim") + '">\u2605</span>';
+  return s;
+}
+function starStr(n) { var s = ""; for (var i = 0; i < 3; i++) s += i < n ? "\u2605" : "\u2606"; return s; }
+
+// ---------- 词表 DOM ----------
+function buildWordList() {
+  wordListEl.innerHTML = "";
+  chipEls = [];
+  for (var i = 0; i < wordRows.length; i++) {
+    var d = document.createElement("div");
+    d.className = "chip";
+    d.textContent = wordRows[i].word;
+    wordListEl.appendChild(d);
+    chipEls.push(d);
+  }
+}
+
+// ---------- 流程 ----------
+function startRound(themeIdx) {
+  curTheme = themeIdx;
+  var words = pickWords(THEMES[themeIdx].words, WORD_COUNT);
+  puzzle = generatePuzzle(gridSize, words);
+  while (!puzzle) puzzle = generatePuzzle(gridSize, words); // 理论上不会触发（999 次重试足够）
+  wordRows = [];
+  for (var i = 0; i < words.length; i++) wordRows.push({ word: words[i], found: false });
+  foundCount = 0; score = 0; timeLeft = ROUND_TIME;
+  lines = []; drag = null; errCells = null; errT = 0; lastTick = -1; paused = false;
+  buildWordList();
+  themeLabel.textContent = THEMES[themeIdx].name + " \u00B7 " + gridSize + "\u00D7" + gridSize;
+  scoreVal.textContent = "0";
+  foundVal.textContent = "0/" + WORD_COUNT;
+  overlayEl.style.display = "none";
+  menuEl.style.display = "none";
+  gameEl.style.display = "flex";
+  layoutBoard();
+  requestAnimationFrame(layoutBoard);
+  updateTimeHUD();
+  state = "PLAY";
+  audio(); // 用户手势内解锁音频
+  sdkStart();
+}
+function showMenu() {
+  state = "MENU";
+  sdkStop(false);
+  drag = null; paused = false;
+  gameEl.style.display = "none";
+  menuEl.style.display = "flex";
+  updateMenuBests();
+}
+function wordFound(wi, cells) {
+  var row = wordRows[wi];
+  row.found = true;
+  foundCount++;
+  score += 10 * row.word.length + 20;
+  timeLeft = Math.min(ROUND_TIME, timeLeft + WORD_BONUS_TIME);
+  var color = CRAYONS[wi % CRAYONS.length];
+  lines.push({ cells: cells, color: color, t: 0 });
+  scoreVal.textContent = score;
+  foundVal.textContent = foundCount + "/" + wordRows.length;
+  chipEls[wi].classList.add("found");
+  chipEls[wi].style.borderColor = color;
+  sfxFound();
+  updateTimeHUD();
+  if (foundCount === wordRows.length) win();
+}
+function errorFX(cells) {
+  errCells = cells; errT = 0.45;
+  sfxError();
+  canvas.classList.remove("shake");
+  void canvas.offsetWidth; // 重新触发 CSS 抖动动画
+  canvas.classList.add("shake");
+}
+function win() {
+  state = "END";
+  var bonus = Math.ceil(timeLeft) * 2;
+  score += bonus;
+  scoreVal.textContent = score;
+  var used = ROUND_TIME - Math.max(0, timeLeft);
+  var stars = used <= 60 ? 3 : used <= 110 ? 2 : 1;
+  var isBest = saveBest(THEMES[curTheme].name, gridSize, score, stars);
+  ovTitle.textContent = "Wonderful!";
+  ovStars.innerHTML = starsHTML(stars);
+  finalScore.textContent = score;
+  ovText.textContent = (isBest ? "NEW BEST! " : "Best " + bestFor(THEMES[curTheme].name, gridSize).s + " \u00B7 ") + "Time bonus +" + bonus;
+  overlayEl.style.display = "flex";
+  drag = null;
+  sfxWin();
+  sdkStop(true);
+}
+function lose() {
+  state = "END";
+  ovTitle.textContent = "Time's Up!";
+  ovStars.innerHTML = starsHTML(0);
+  finalScore.textContent = score;
+  ovText.textContent = "You found " + foundCount + " of " + wordRows.length + " words";
+  overlayEl.style.display = "flex";
+  drag = null;
+  sfxLose();
+  sdkStop(false);
+}
+
+// ---------- 主循环 ----------
+var last = 0;
+function frame(t) {
+  var dt = Math.min((t - last) / 1000, 0.05);
+  last = t;
+  var bw = boardEl.clientWidth, bh = boardEl.clientHeight;
+  if (bw !== viewW || bh !== viewH) layoutBoard(); // 自适应（旋转/缩放/布局变化）
+  if (state === "PLAY" && !paused) {
+    timeLeft -= dt;
+    var sec = Math.ceil(timeLeft);
+    if (sec !== lastTick) {
+      lastTick = sec;
+      updateTimeHUD();
+      if (sec <= 10 && sec > 0) sfxTick();
+    }
+    if (timeLeft <= 0) { timeLeft = 0; updateTimeHUD(); lose(); }
+  }
+  if (errT > 0) errT -= dt;
+  for (var li = 0; li < lines.length; li++) lines[li].t += dt;
+  render();
+  requestAnimationFrame(frame);
+}
+
+// ---------- 输入（鼠标 + 触控拖动，磁吸 8 方向） ----------
+function evtPos(clientX, clientY) {
+  var rect = canvas.getBoundingClientRect();
+  return { x: (clientX - rect.left) / rect.width * viewW, y: (clientY - rect.top) / rect.height * viewH };
+}
+function cellAt(x, y) {
+  var c = Math.floor((x - OX) / CELL), r = Math.floor((y - OY) / CELL);
+  if (c < 0 || r < 0 || c >= N || r >= N) return null;
+  return { c: c, r: r };
+}
+function startDrag(pos) {
+  if (state !== "PLAY" || paused) return;
+  var cell = cellAt(pos.x, pos.y);
+  if (!cell) return;
+  drag = { c0: cell.c, r0: cell.r, cells: [{ c: cell.c, r: cell.r }] };
+  sfxStep(1);
+}
+function moveDrag(pos) {
+  if (!drag || state !== "PLAY" || paused) return;
+  var dx = pos.x - (OX + (drag.c0 + 0.5) * CELL);
+  var dy = pos.y - (OY + (drag.r0 + 0.5) * CELL);
+  var cells;
+  if (Math.abs(dx) < CELL * 0.4 && Math.abs(dy) < CELL * 0.4) {
+    cells = [{ c: drag.c0, r: drag.r0 }];
+  } else {
+    // 磁吸：先把指针角度吸附到最近的 8 方向，再把位移投影到该方向轴上取整格数
+    // （对角方向相邻格间距为 √2·CELL，直接用欧氏距离会过冲，必须投影）
+    var idx = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
+    var dir = DIRS8[((idx % 8) + 8) % 8];
+    var dc = dir[0], dr = dir[1];
+    var steps = Math.max(0, Math.round((dx * dc + dy * dr) / ((dc * dc + dr * dr) * CELL)));
+    cells = [];
+    for (var i = 0; i <= steps; i++) {
+      var c = drag.c0 + dir[0] * i, r = drag.r0 + dir[1] * i;
+      if (c < 0 || r < 0 || c >= N || r >= N) break;
+      cells.push({ c: c, r: r });
+    }
+    if (cells.length === 0) cells = [{ c: drag.c0, r: drag.r0 }];
+  }
+  var tail = cells[cells.length - 1], prev = drag.cells[drag.cells.length - 1];
+  if (cells.length !== drag.cells.length || tail.c !== prev.c || tail.r !== prev.r) {
+    drag.cells = cells;
+    if (cells.length > 1) sfxStep(cells.length);
+  }
+}
+function endDrag() {
+  if (!drag) return;
+  var cells = drag.cells;
+  drag = null;
+  if (state !== "PLAY" || cells.length < 2) return;
+  var str = "";
+  for (var i = 0; i < cells.length; i++) str += puzzle.grid[cells[i].r][cells[i].c];
+  var rev = str.split("").reverse().join("");
+  var hit = -1;
+  for (var w = 0; w < wordRows.length; w++)
+    if (!wordRows[w].found && (wordRows[w].word === str || wordRows[w].word === rev)) { hit = w; break; }
+  if (hit >= 0) wordFound(hit, cells);
+  else errorFX(cells);
+}
+canvas.addEventListener("mousedown", function (e) { audio(); startDrag(evtPos(e.clientX, e.clientY)); });
+window.addEventListener("mousemove", function (e) { if (drag) moveDrag(evtPos(e.clientX, e.clientY)); });
+window.addEventListener("mouseup", endDrag);
+canvas.addEventListener("touchstart", function (e) {
+  e.preventDefault();
+  audio();
+  var t = e.changedTouches[0];
+  startDrag(evtPos(t.clientX, t.clientY));
+}, { passive: false });
+canvas.addEventListener("touchmove", function (e) {
+  e.preventDefault();
+  var t = e.changedTouches[0];
+  moveDrag(evtPos(t.clientX, t.clientY));
+}, { passive: false });
+canvas.addEventListener("touchend", function (e) { e.preventDefault(); endDrag(); }, { passive: false });
+canvas.addEventListener("touchcancel", function () { drag = null; }, { passive: false });
+
+// ---------- 菜单构建 ----------
+var themeBtns = [];
+function rgba(hex, a) {
+  var n = parseInt(hex.slice(1), 16);
+  return "rgba(" + (n >> 16 & 255) + "," + (n >> 8 & 255) + "," + (n & 255) + "," + a + ")";
+}
+function buildMenu() {
+  themeGridEl.innerHTML = "";
+  themeBtns = [];
+  for (var i = 0; i < THEMES.length; i++) {
+    (function (idx) {
+      var b = document.createElement("button");
+      b.className = "themeBtn";
+      b.style.background = rgba(THEMES[idx].color, 0.13);
+      b.style.borderColor = rgba(THEMES[idx].color, 0.55);
+      b.innerHTML = THEMES[idx].name + '<span class="best"></span>';
+      b.addEventListener("click", function () { startRound(idx); });
+      themeGridEl.appendChild(b);
+      themeBtns.push(b);
+    })(i);
+  }
+  var sizeBtns = [document.getElementById("sz0"), document.getElementById("sz1"), document.getElementById("sz2")];
+  for (var s = 0; s < sizeBtns.length; s++) {
+    (function (si) {
+      sizeBtns[si].classList.toggle("sel", si === sizeIdx);
+      sizeBtns[si].addEventListener("click", function () {
+        sizeIdx = si; gridSize = SIZES[si];
+        lsSet("ws_size", String(gridSize));
+        for (var k = 0; k < sizeBtns.length; k++) sizeBtns[k].classList.toggle("sel", k === si);
+        updateMenuBests();
+      });
+    })(s);
+  }
+  updateMenuBests();
+}
+function updateMenuBests() {
+  for (var i = 0; i < THEMES.length; i++) {
+    var b = bestFor(THEMES[i].name, gridSize);
+    themeBtns[i].querySelector(".best").textContent = b ? "BEST " + b.s + " " + starStr(b.st) : "NO RECORD";
+  }
+}
+
+// ---------- 按钮 / 其他事件 ----------
+document.getElementById("backBtn").addEventListener("click", showMenu);
+document.getElementById("againBtn").addEventListener("click", function () { startRound(curTheme); });
+document.getElementById("menuBtn").addEventListener("click", showMenu);
+soundBtn.addEventListener("click", function () {
+  muted = !muted;
+  lsSet("ws_mute", muted ? "1" : "0");
+  soundBtn.textContent = muted ? "SOUND OFF" : "SOUND ON";
+  if (!muted) audio();
+});
+soundBtn.textContent = muted ? "SOUND OFF" : "SOUND ON";
+document.addEventListener("keydown", function (e) { if (e.key === "Escape" && state !== "MENU") showMenu(); });
+document.addEventListener("visibilitychange", function () {
+  if (state !== "PLAY") return;
+  if (document.hidden) { paused = true; sdkStop(false); }
+  else { paused = false; sdkStart(); }
+});
+
+// ---------- 启动 ----------
+buildMenu();
+layoutBoard();
+requestAnimationFrame(frame);
+// 调试/测试钩子（不影响游戏逻辑）
+window.__ws = {
+  THEMES: THEMES, WORD_DATA: WORD_DATA, DIRS8: DIRS8,
+  parseThemes: parseThemes, pickWords: pickWords, generatePuzzle: generatePuzzle,
+  startRound: startRound,
+  get state() { return state; },
+  get puzzle() { return puzzle; },
+  get wordRows() { return wordRows; },
+  get score() { return score; },
+  get timeLeft() { return timeLeft; },
+  get layout() { return { OX: OX, OY: OY, CELL: CELL, N: N }; }
+};
+</script>
+</body>
+</html>
